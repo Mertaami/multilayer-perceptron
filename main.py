@@ -3,6 +3,7 @@ import numpy as np
 import random
 import matplotlib.pyplot as plt
 import time
+from timeit import timeit
 
 def sigmoid(x):
     return 1 / (1 + exp(-x))
@@ -92,8 +93,8 @@ class MultiLayerPerceptron():
             print(text, end="")
             # Train
             for j in range(iterations):
-                input, excpected = random.choice(space)
-                self.backprop(input, excpected)
+                input, expected = random.choice(space)
+                self.backprop(input, expected)
                 self.fit()
             # Test
             errors = []
