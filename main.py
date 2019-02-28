@@ -28,8 +28,8 @@ class Layer():
         self.grad_weights = np.zeros((output_size, input_size))
         # Bias
 
-    # def __repr__(self):
-    #     return "(Layer {} -> {})".format(len(self.weights), len(self.bias))
+    def __repr__(self):
+        return "<Layer {} -> {}>".format(self.weights.shape[1], self.weights.shape[0])
 
     def compute(self, input):
         self.input = input
@@ -54,6 +54,24 @@ class MultiLayerPerceptron():
         for k in range(len(layer_sizes)-1):
             self.layers.append(Layer(layer_sizes[k], layer_sizes[k+1]))
 
+    def __repr__(self):
+        return "<MultiLayerPerceptron {}>".format(self.layers)
+
+    @staticmethod
+    def load(filename):
+        array = np.load(open(filename, 'rb'))
+        sizes = [array[0].shape[1]]
+        for layer in array:
+            sizes.append(layer.shape[0])
+        mlp = MultiLayerPerceptron(sizes)
+        for k, layer in enumerate(array):
+            mlp.layers[k].weights = layer
+        return mlp
+
+    def save(self, filename):
+        array = [layer.weights for layer in self.layers]
+        np.save(open(filename, 'wb'), array)
+
     def error(self, output, expected):
         return 1/2 * np.sum((expected - output)**2)
 
@@ -73,22 +91,34 @@ class MultiLayerPerceptron():
         for layer in self.layers:
             layer.weights -= learning_rate * layer.grad_weights
 
-    def learn(self, space, test_space, iterations=100, test_iterations=100, epochs=100):
+    def test(self, test_space, test_iterations=100):
+        errors = []
+        success = 0
+        for j in range(test_iterations):
+            input, expected = random.choice(test_space)
+            output = self.frontprop(input)
+            errors.append(self.error(output, expected))
+            if np.argmax(output) == np.argmax(expected):
+                success += 1
+        return sum(errors)/100, success/100
+
+    def learn(self, space, test_space, iterations=100, test_iterations=100, epochs=100, save=None):
         mean_errors = []
         mean_accuracy = []
         begin = time.time()
         for i in range(epochs):
+            if save: self.save(save)
             # Print ETA
             elapsed = time.time() - begin
             total = int(epochs/i * elapsed) if i > 0 else 0
             remaining = int(total - elapsed)
-            text = "\r[Learning] {:3.2f}% ~ ert ".format(i*epochs/100)
-            if remaining//3600 > 0:
-                text += "{:2d} h ".format(remaining//3600)
-                remaining = remaining % 3600
-            if remaining//60 > 0:
-                text += "{:2d} m ".format(remaining//60)
-                remaining = remaining % 60
+            text = "\r[Learning] {:3.2f}% ~ ert ".format(i*100/epochs)
+            # if remaining//3600 > 0:
+            text += "{:2d} h ".format(remaining//3600)
+            remaining = remaining % 3600
+            # if remaining//60 > 0:
+            text += "{:2d} m ".format(remaining//60)
+            remaining = remaining % 60
             text += "{:2d} s".format(remaining)
             print(text, end="")
             # Train
@@ -97,16 +127,9 @@ class MultiLayerPerceptron():
                 self.backprop(input, expected)
                 self.fit()
             # Test
-            errors = []
-            success = 0
-            for j in range(test_iterations):
-                input, expected = random.choice(test_space)
-                errors.append(self.error(self.frontprop(input), expected))
-                # Only for classifier
-                if np.argmax(self.frontprop(input)) == np.argmax(expected):
-                    success += 1
-            mean_errors.append(sum(errors, 0)/100)
-            mean_accuracy.append(success/100)
+            error, accuracy = self.test(test_space, test_iterations)
+            mean_errors.append(error)
+            mean_accuracy.append(accuracy)
         return mean_errors, mean_accuracy
 
             
@@ -143,7 +166,8 @@ if __name__ == "__main__":
 
     # MNIST
     print("[Initializing] Perceptron: ", end="")
-    mlp = MultiLayerPerceptron([28*28, 32, 16, 10])
+    # mlp = MultiLayerPerceptron([28*28, 32, 16, 10])
+    mlp = MultiLayerPerceptron.load('mnist.npy')
     print("OK")
     print("[Loading] Training set: ", end="")
     space = np.load(open("data/train.npy", "rb"))
@@ -153,13 +177,19 @@ if __name__ == "__main__":
     test_space = [(input.reshape(28*28), expected) for input, expected in test_space]
     print("OK")
 
-    mean_errors, mean_accuracy = mlp.learn(space, test_space)
+    mean_errors, mean_accuracy = mlp.learn(space, test_space, iterations=1000, epochs=100, save='mnist.npy')
             
     image, expected = random.choice(space)
     input = np.reshape(image, 28*28)
     print(mlp.frontprop(input), expected)
-    print(np.argmax(mlp.frontprop(input)), np.argmax(expected))
+    print(np.argmax(mlp.frontprop(input)), "=>", np.argmax(expected))
 
+    plt.figure(1)
+    plt.subplot(211)
     plt.plot(mean_errors)
+    plt.ylabel("error")
+    plt.subplot(212)
     plt.plot(mean_accuracy)
+    plt.ylabel("accuracy")
+    plt.axis([0, len(mean_accuracy), 0, 1])
     plt.show()
