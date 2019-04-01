@@ -1,4 +1,1 @@
 numpy
-idx2numpy
-matplotlib
-pylint
