@@ -14,6 +14,7 @@ def d_sigmoid(x):
 d_sigmoid = np.vectorize(d_sigmoid)
 
 learning_rate = 0.001
+verbose = False
 
 class Layer():
     
@@ -120,7 +121,7 @@ class MultiLayerPerceptron():
             text += "{:2d} m ".format(remaining//60)
             remaining = remaining % 60
             text += "{:2d} s".format(remaining)
-            print(text, end="")
+            if verbose: print(text, end="")
             # Train
             for j in range(iterations):
                 input, expected = random.choice(space)
